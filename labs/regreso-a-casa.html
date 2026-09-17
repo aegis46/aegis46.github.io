@@ -188,18 +188,17 @@ send_credential_thread()</code></pre>
 <section class="shell section answer-section">
   <div class="eyebrow">LAB ANSWERS</div>
   <h2>Documented answer set</h2>
-  <div class="ioc-table">
-    <div><span>01 · INITIAL ACCESS VULNERABILITY</span><code>CVE-2023-22515</code></div>
-    <div><span>02 · CONFLUENCE EXPLOIT IP</span><code>188.241.80.65</code></div>
-    <div><span>03 · MALICIOUS SSH USERNAME</span><code>dev1</code></div>
-    <div><span>04 · REPLACED BINARY CREATION TIME</span><code>Thu Feb 27 21:02:26 2025 UTC</code></div>
-    <div><span>05 · MALICIOUS SHARED LIBRARY MD5</span><code>6d350cb8f42b9bfcbd8e0a4ca1b3e847</code></div>
-    <div><span>06 · IP OBFUSCATION</span><code>XOR</code></div>
-    <div><span>07 · STACK ALLOCATION</span><code>2128 bytes (0x850)</code></div>
-    <div><span>08 · CREDENTIAL-SENDING FUNCTION</span><code>send_credential</code></div>
-    <div><span>09 · RELATED CAMPAIGN VICTIM</span><code>Cambodia</code></div>
-    <div><span>10 · LIKELY NATION STATE</span><code>China</code></div>
-  </div>
+  <p class="section-intro">Click a question to reveal the answer.</p>
+  <details class="details-block"><summary>01 · What vulnerability was used for initial access?</summary><p><strong>Answer:</strong> <code>CVE-2023-22515</code></p></details>
+  <details class="details-block"><summary>02 · What IP address was used to exploit the Confluence instance?</summary><p><strong>Answer:</strong> <code>188.241.80.65</code></p></details>
+  <details class="details-block"><summary>03 · What was the username used in the malicious SSH session?</summary><p><strong>Answer:</strong> <code>dev1</code></p></details>
+  <details class="details-block"><summary>04 · What is the recorded creation time of the legitimate binary that was replaced to harvest credentials?</summary><p><strong>Answer:</strong> <code>Thu Feb 27 21:02:26 2025 UTC</code></p></details>
+  <details class="details-block"><summary>05 · What is the MD5 hash of the malicious shared library?</summary><p><strong>Answer:</strong> <code>6d350cb8f42b9bfcbd8e0a4ca1b3e847</code></p></details>
+  <details class="details-block"><summary>06 · What type of encoding was used to obfuscate IP addresses within the shared library?</summary><p><strong>Answer:</strong> <code>XOR</code></p></details>
+  <details class="details-block"><summary>07 · Within the function that sends credentials in a new thread, how many bytes are allocated on the stack for storing request payloads?</summary><p><strong>Answer:</strong> <code>2128 bytes (0x850)</code></p></details>
+  <details class="details-block"><summary>08 · Which function is responsible for sending stolen credentials to a C2 server?</summary><p><strong>Answer:</strong> <code>send_credential</code></p></details>
+  <details class="details-block"><summary>09 · All IPs utilised by the threat actor were also seen in another campaign targeting a specific country. Which country was the victim?</summary><p><strong>Answer:</strong> <code>Cambodia</code></p></details>
+  <details class="details-block"><summary>10 · Which nation state likely conducted this operation?</summary><p><strong>Answer:</strong> <code>China</code></p></details>
 </section>
 
 <section class="shell section">
