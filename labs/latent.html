@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Aegis46 case study: Latent investigation covering network reconnaissance, SMB payload delivery, IIS reverse-shell activity, memory forensics and AgentTesla malware analysis.">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<meta http-equiv="X-Content-Type-Options" content="nosniff">
+<meta http-equiv="Permissions-Policy" content="camera=(), microphone=(), geolocation=(), payment=(), usb=()">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'none'; style-src 'self'; img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'; upgrade-insecure-requests">
+<title>Latent | Aegis46</title>
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/case.css">
+</head>
+<body>
+<header class="topbar"><div class="shell nav"><a class="brand" href="/"><span class="brand-mark">A46</span><span>Aegis46</span></a><nav><a href="/">Home</a><a class="active" href="/labs.html">Labs</a><a href="/tools.html">Tools</a><a href="/threat-intel.html">Threat Intel</a><a href="https://github.com/aegis46/aegis46.github.io">GitHub</a></nav></div></header>
+<main>
+<section class="hero case-hero shell"><div class="eyebrow">CASE FILE · BTLO · COMPLETE</div><h1>Latent<span> / network, memory &amp; malware forensics</span></h1><p class="hero-copy">Reconstruction of an intrusion beginning with service discovery and SMB share access, followed by ASPX payload execution, a reverse shell through IIS, persistence in the Windows Startup folder and static analysis of an AgentTesla sample.</p><div class="tag-row"><span class="tag status">CASE COMPLETE</span><span class="tag">WIRESHARK</span><span class="tag">VOLATILITY 3</span><span class="tag">PESTUDIO</span><span class="tag">VIRUSTOTAL</span><span class="tag">WINDOWS FORENSICS</span></div></section>
+
+<section class="shell section"><div class="eyebrow">EXECUTIVE SUMMARY</div><h2>What happened</h2><div class="prose-grid"><div><p>Network evidence identified <code>10.0.2.4</code> as the attacker host. It performed a broad TCP port scan against <code>10.0.2.15</code>, then authenticated over SMB and enumerated shares before connecting to the <code>Documents</code> share.</p><p>The attacker uploaded <code>shell.aspx</code> to that share. The payload was subsequently requested over HTTP from <code>/Documents/shell.aspx</code>, causing the victim to initiate a reverse connection back to the attacker on TCP port <code>4443</code>.</p></div><div><p>Memory analysis identified <code>w3wp.exe</code>, the IIS worker process, as the process associated with the web-shell execution chain. A later child process, <code>updatenow.exe</code> (PID <code>900</code>), was found executing from the Windows Startup folder.</p><p>Static analysis showed that the executable was UPX-packed, had high entropy and imported <code>WSOCK32.dll</code>. The lab ultimately identified the malware family as <strong>AgentTesla</strong>.</p></div></div></section>
+
+<section class="shell section"><div class="eyebrow">ATTACK CHAIN</div><h2>From reconnaissance to persistence</h2><div class="timeline">
+<article class="timeline-item"><span class="timeline-no">01</span><div><span class="timeline-label">RECONNAISSANCE</span><h3>TCP port scan</h3><p><code>10.0.2.4</code> sent SYN packets to a large number of ports on <code>10.0.2.15</code>, establishing the attacker's service-discovery activity.</p></div></article>
+<article class="timeline-item"><span class="timeline-no">02</span><div><span class="timeline-label">INITIAL ACCESS</span><h3>SMB share access</h3><p>The attacker negotiated SMB2, authenticated as <code>WORKGROUP\root</code>, enumerated shares through <code>IPC$</code> and connected to <code>\\10.0.2.15\Documents</code>.</p></div></article>
+<article class="timeline-item"><span class="timeline-no">03</span><div><span class="timeline-label">PAYLOAD DELIVERY</span><h3>ASPX payload uploaded</h3><p>An SMB Create/Write sequence showed <code>shell.aspx</code> being written to the <code>Documents</code> share.</p></div></article>
+<article class="timeline-item"><span class="timeline-no">04</span><div><span class="timeline-label">EXECUTION</span><h3>Web payload requested</h3><p>At <code>Sep 10, 2024 01:49:33 EDT</code>, the attacker requested <code>/Documents/shell.aspx</code> over HTTP.</p></div></article>
+<article class="timeline-item"><span class="timeline-no">05</span><div><span class="timeline-label">COMMAND &amp; CONTROL</span><h3>Reverse shell</h3><p>Approximately 18 seconds later, <code>10.0.2.15</code> initiated a TCP connection back to <code>10.0.2.4:4443</code>. Process evidence tied the IIS execution chain to <code>w3wp.exe</code>.</p></div></article>
+<article class="timeline-item"><span class="timeline-no">06</span><div><span class="timeline-label">PERSISTENCE / MALWARE</span><h3>Startup-folder executable</h3><p><code>w3wp.exe</code> later spawned <code>updatenow.exe</code>. The executable was located in the Windows Startup folder, providing persistence at user logon.</p></div></article>
+</div></section>
+
+<section class="shell section"><div class="eyebrow">EVIDENCE LED ANALYSIS</div><h2>How the investigation was solved</h2><div class="evidence-grid">
+<article class="evidence-card"><span>01 · NETWORK</span><h3>Attacker identification</h3><p>Wireshark endpoint and SYN-only analysis showed one host probing many destination ports.</p><div class="evidence-value">10.0.2.4 → 10.0.2.15<br>TCP SYN scan</div></article>
+<article class="evidence-card"><span>02 · SMB</span><h3>Share access and upload</h3><p>SMB2 Tree Connect, Create and Write operations established the accessed share and payload filename.</p><div class="evidence-value">Documents<br>shell.aspx</div></article>
+<article class="evidence-card"><span>03 · HTTP</span><h3>Payload execution</h3><p>The ASPX payload was requested through the web server immediately before the reverse connection.</p><div class="evidence-value">/Documents/shell.aspx<br>01:49:33 EDT</div></article>
+<article class="evidence-card"><span>04 · MEMORY</span><h3>Suspicious process</h3><p>Volatility <code>pslist</code>/<code>psscan</code> identified the suspicious executable and its virtual process-object offset.</p><div class="evidence-value">updatenow.exe · PID 900<br>0xce0657ddb1c0</div></article>
+<article class="evidence-card"><span>05 · PROCESS TREE</span><h3>IIS execution chain</h3><p><code>w3wp.exe</code> existed during the reverse-shell activity and was the parent of the later malware process.</p><div class="evidence-value">w3wp.exe · PID 4332<br>updatenow.exe · PID 900</div></article>
+<article class="evidence-card"><span>06 · STATIC ANALYSIS</span><h3>Packed AgentTesla sample</h3><p>PEStudio showed UPX sections, high entropy and Windows socket imports. VirusTotal/lab validation identified the malware family.</p><div class="evidence-value">UPX · entropy 7.932<br>AgentTesla</div></article>
+</div></section>
+
+<section class="shell section"><div class="eyebrow">NETWORK FORENSICS</div><h2>Reconnaissance and SMB delivery</h2><div class="callout"><div class="callout-label">WIRESHARK · SYN SCAN</div><pre><code>tcp.flags.syn == 1 &amp;&amp; tcp.flags.ack == 0
+
+10.0.2.4 → 10.0.2.15
+multiple destination ports</code></pre><p>The repeated SYN-only pattern across many destination ports identified the attacker's port scan.</p></div><div class="callout"><div class="callout-label">WIRESHARK · SMB2</div><pre><code>Tree Connect Request: \\10.0.2.15\Documents
+Create Request File: shell.aspx
+Write Request ... File: shell.aspx
+Close Request File: shell.aspx</code></pre><p>This sequence establishes both the share accessed and the payload written to it.</p></div></section>
+
+<section class="shell section"><div class="eyebrow">REVERSE SHELL</div><h2>ASPX trigger to outbound connection</h2><div class="prose-grid"><div><p>The HTTP request that triggered the payload was:</p><pre><code>GET /Documents/shell.aspx HTTP/1.1</code></pre><p>The packet timestamp was <code>2024-09-10 05:49:33 UTC</code>, equivalent to <code>Sep 10, 2024 01:49:33 EDT</code>.</p></div><div><p>The victim then initiated:</p><pre><code>10.0.2.15:49688 → 10.0.2.4:4443
+TCP SYN</code></pre><p>The direction and timing are consistent with an outbound reverse-shell connection from the compromised server.</p></div></div></section>
+
+<section class="shell section"><div class="eyebrow">MEMORY FORENSICS</div><h2>Process and persistence evidence</h2><p class="section-intro">Volatility 3 was used to correlate the suspicious executable, process hierarchy and execution path.</p><pre class="large-code"><code>PID   PPID   ImageFileName   Offset(V)
+900   4332   updatenow.exe   0xce0657ddb1c0
+
+4332  2452   w3wp.exe</code></pre><div class="two-col-notes"><div><span>EXECUTABLE LOCATION</span><p><code>\ProgramData\Microsoft\Windows\Start Menu\Programs\StartUp\updatenow.exe</code></p></div><div><span>PROCESS RELATIONSHIP</span><p><code>w3wp.exe</code> was the parent of <code>updatenow.exe</code>, linking the IIS compromise path to the later executable.</p></div></div></section>
+
+<section class="shell section"><div class="eyebrow">STATIC MALWARE ANALYSIS</div><h2>AgentTesla sample</h2><div class="ioc-table">
+<div><span>FILE</span><code>updatenow.exe</code></div>
+<div><span>MD5</span><code>d797600296ddbed4497725579d814b7e</code></div>
+<div><span>SHA-256</span><code>c25a6673a24d169de1bb399d226c12cdc666e0fa534149fc9fa7896ee61d406f</code></div>
+<div><span>PACKER</span><code>UPX</code></div>
+<div><span>ENTROPY</span><code>7.932</code></div>
+<div><span>SOCKET LIBRARY</span><code>WSOCK32.dll</code></div>
+<div><span>FAMILY</span><code>AgentTesla</code></div>
+</div><p class="section-intro">PEStudio identified <code>UPX0</code>/<code>UPX1</code> sections and the Windows Socket 32-bit Library. The high entropy value supported the packed/obfuscated assessment.</p></section>
+
+<section class="shell section"><div class="eyebrow">USEFUL COMMANDS</div><h2>Volatility workflow</h2><pre class="large-code"><code>.\vol.py -f "C:\Users\BTLOTest\Desktop\Investigation\memdump.mem" windows.pslist
+.\vol.py -f "C:\Users\BTLOTest\Desktop\Investigation\memdump.mem" windows.psscan | findstr /i "updatenow"
+.\vol.py -f "C:\Users\BTLOTest\Desktop\Investigation\memdump.mem" windows.pstree | findstr /i "updatenow"
+.\vol.py -f "C:\Users\BTLOTest\Desktop\Investigation\memdump.mem" windows.cmdline | findstr /i "updatenow"
+.\vol.py -f "C:\Users\BTLOTest\Desktop\Investigation\memdump.mem" windows.filescan | findstr /i "updatenow"
+.\vol.py -f "C:\Users\BTLOTest\Desktop\Investigation\memdump.mem" windows.dlllist --pid 900
+
+chcp 65001
+set PYTHONIOENCODING=utf-8</code></pre><p class="muted">The UTF-8 commands were used to avoid Windows CP1252 rendering errors while exporting Volatility output.</p></section>
+
+<section class="shell section"><div class="eyebrow">MITRE ATT&amp;CK · ANALYST MAPPING</div><h2>Observed techniques</h2><div class="attack-grid">
+<div><code>T1046</code><h3>Network Service Discovery</h3><p>The attacker scanned multiple TCP ports to discover exposed services.</p></div>
+<div><code>T1021.002</code><h3>SMB/Windows Admin Shares</h3><p>SMB was used to enumerate and access a network share.</p></div>
+<div><code>T1105</code><h3>Ingress Tool Transfer</h3><p><code>shell.aspx</code> was transferred onto the victim through SMB.</p></div>
+<div><code>T1505.003</code><h3>Web Shell</h3><p>An ASPX payload was requested through IIS to obtain remote command execution.</p></div>
+<div><code>T1059</code><h3>Command and Scripting Interpreter</h3><p>The reverse-shell stage provided interactive command execution on the victim.</p></div>
+<div><code>T1547.001</code><h3>Registry Run Keys / Startup Folder</h3><p><code>updatenow.exe</code> was placed in the Windows Startup folder for persistence.</p></div>
+<div><code>T1027.002</code><h3>Software Packing</h3><p>The malicious executable used UPX packing and exhibited high entropy.</p></div>
+</div></section>
+
+<section class="shell section answer-section"><div class="eyebrow">LAB ANSWERS</div><h2>Documented answer set</h2><p class="section-intro">Click a question to reveal the answer.</p>
+<details class="details-block"><summary>01 · What is the attacker source IP?</summary><p><strong>Answer:</strong> <code>10.0.2.4</code></p></details>
+<details class="details-block"><summary>02 · Which action did the attacker perform to discover different services running on the victim?</summary><p><strong>Answer:</strong> <code>Port Scan</code></p></details>
+<details class="details-block"><summary>03 · Which service is being exploited in the initial phase?</summary><p><strong>Answer:</strong> <code>SMB</code></p></details>
+<details class="details-block"><summary>04 · Which share is being accessed by the attacker?</summary><p><strong>Answer:</strong> <code>Documents</code></p></details>
+<details class="details-block"><summary>05 · What is the name of the malicious payload being uploaded to the share?</summary><p><strong>Answer:</strong> <code>shell.aspx</code></p></details>
+<details class="details-block"><summary>06 · What is the time when the payload file was requested to receive a reverse shell?</summary><p><strong>Answer:</strong> <code>Sep 10, 2024 01:49:33 EDT</code></p></details>
+<details class="details-block"><summary>07 · On which port is the attacker listening for the reverse shell connection?</summary><p><strong>Answer:</strong> <code>4443</code></p></details>
+<details class="details-block"><summary>08 · What is the name of the suspicious executable file running on the system?</summary><p><strong>Answer:</strong> <code>updatenow.exe</code></p></details>
+<details class="details-block"><summary>09 · What is the PID of the above process?</summary><p><strong>Answer:</strong> <code>900</code></p></details>
+<details class="details-block"><summary>10 · What is the virtual address of the file object in memory?</summary><p><strong>Answer:</strong> <code>0xce0657ddb1c0</code></p></details>
+<details class="details-block"><summary>11 · Where was the executable moved after upload?</summary><p><strong>Answer:</strong> <code>\ProgramData\Microsoft\Windows\Start Menu\Programs\StartUp\updatenow.exe</code></p></details>
+<details class="details-block"><summary>12 · Which application was handling the reverse shell connection from the victim?</summary><p><strong>Answer:</strong> <code>w3wp.exe</code></p></details>
+<details class="details-block"><summary>13 · What is the MD5 hash of the malicious executable?</summary><p><strong>Answer:</strong> <code>d797600296ddbed4497725579d814b7e</code></p></details>
+<details class="details-block"><summary>14 · Which packer is used to obfuscate the malware code?</summary><p><strong>Answer:</strong> <code>UPX</code></p></details>
+<details class="details-block"><summary>15 · What is the entropy value of the application?</summary><p><strong>Answer:</strong> <code>7.932</code></p></details>
+<details class="details-block"><summary>16 · Which library is used for managing Windows socket functionality?</summary><p><strong>Answer:</strong> <code>WSOCK32.dll</code></p></details>
+<details class="details-block"><summary>17 · To which family does this malware belong?</summary><p><strong>Answer:</strong> <code>AgentTesla</code></p></details>
+</section>
+
+<section class="shell section"><div class="eyebrow">FINAL FINDINGS</div><h2>Case conclusion</h2><div class="conclusion"><p>The evidence supports a continuous intrusion chain from TCP service discovery through SMB access and ASPX payload delivery, followed by IIS-hosted reverse-shell execution and deployment of a persistent Windows executable.</p><p>Network and memory evidence complemented each other: Wireshark established the attack sequence and timing, while Volatility identified the executable, PID, process hierarchy and persistence path. PEStudio then provided the static characteristics needed to classify the packed malware sample as AgentTesla.</p><div class="tag-row"><span class="tag status">INVESTIGATION COMPLETE</span><span class="tag">17 QUESTIONS</span><span class="tag">NETWORK + MEMORY CORRELATED</span><span class="tag">MALWARE CLASSIFIED</span></div></div></section>
+</main>
+<footer class="shell footer"><span>Aegis46 · Latent</span><a href="/labs.html">Back to Labs</a></footer>
+</body>
+</html>
